@@ -7,14 +7,14 @@ where
 -- to be autocompleted in your program's repl.
 completions :: [String]
 completions =
-  [ "<facility>",
-    "<component>",
-    "<subsystem>",
-    "<component_list>",
-    "<energy_production_unit>",
-    "<solar_panel>",
-    "<nuclear_plant>",
-    "<hydro_plant>",
-    "<wind_turbine>",
-    "<max_storage_amount>"
+  [ "facility",
+    "component",
+    "subsystem",
+    "component_list",
+    "energy_production_unit",
+    "solar_panel",
+    "nuclear_plant",
+    "hydro_plant",
+    "wind_turbine",
+    "max_storage_amount"
   ]
