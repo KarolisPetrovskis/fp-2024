@@ -1,18 +1,30 @@
-<facility> ::= <component> | <subsystem>
+<facility> ::= [<component> | <subsystem>]
 
-<subsystem> ::= "subsystem" "(" <component_list> ")"
+<AddComponent> ::= "add" <component>
 
-<component_list> ::= <component> | <component> <component_list>
+<RemoveComponent> ::= "remove" <Number>
 
-<component> ::= <energy_production_unit> | <storage> | <facility>
+ShowFacility ::= "show_facility"
 
-<energy_production_unit> ::= "solar_panel" | "nuclear_plant" | "hydro_plant" | "wind_turbine"
+CalculateTotalProduction ::= "calculate_total_production"
+
+CalculateTotalStorage ::= "calculate_total_storage"
+
+<subsystem> ::= "subsystem" "(" component+ ")"
+
+<component> ::= <energy_production_unit> | <storage> | <subsystem>
+
+<energy_production_unit> ::= <energy_production_unit_type> <production>
+
+<energy_production_unit_type> ::= "solar_panel" | "nuclear_plant" | "hydro_plant" | "wind_turbine"
 
 <storage> ::= "storage" "(" <efficiency> "," <max_storage_amount> ")"
 
-<efficiency> ::= <number> "%"
+<efficiency> ::= <number>
 
-<max_storage_amount> ::= <number> "MWH"
+<max_storage_amount> ::= <number>
+
+<production> ::= <number>
 
 <number> ::= digit+
 

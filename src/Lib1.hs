@@ -16,5 +16,10 @@ completions =
     "nuclear_plant",
     "hydro_plant",
     "wind_turbine",
-    "max_storage_amount"
+    "max_storage_amount",
+    "add",
+    "remove",
+    "show_facility",
+    "calculate_total_production",
+    "calculate_total_storage"
   ]

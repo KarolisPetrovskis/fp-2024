@@ -9,3 +9,10 @@
 ### To Build & Test the Project, run the following commands
 1. `stack build`
 2. `stack test`
+
+
+### Changes to BNF
+1. Added functions to interact with the program
+2. Remove redundant object
+3. Added production amount to production units
+4. Removed units of measurement for easier parsing
