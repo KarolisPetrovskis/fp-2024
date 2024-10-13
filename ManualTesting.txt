@@ -1,0 +1,35 @@
+Run the program with - 'stack run fp2024-two'
+
+>>> add(storage(10,10))
+Added ComponentWithId {componentId = 1, component = Storage 10.0 10.0}
+>>> add(production_unit(SolarPanel,10))
+Added ComponentWithId {componentId = 2, component = ProductionUnit SolarPanel 10.0}
+>>> add(production_unit(HydroPlant,100))
+Added ComponentWithId {componentId = 3, component = ProductionUnit HydroPlant 100.0}
+>>> show_facility
+Current facility components:
+ComponentWithId {componentId = 3, component = ProductionUnit HydroPlant 100.0}
+ComponentWithId {componentId = 2, component = ProductionUnit SolarPanel 10.0}
+ComponentWithId {componentId = 1, component = Storage 10.0 10.0}
+
+>>> add(subsystem(production_unit(HydroPlant,100) production_unit(NuclearPlant,10) production_unit(HydroPlant,130) storage(100, 100)))
+Added ComponentWithId {componentId = 4, component = Subsystem [ProductionUnit HydroPlant 100.0,ProductionUnit NuclearPlant 10.0,ProductionUnit HydroPlant 130.0,Storage 100.0 100.0]}
+>>> show_facility
+Current facility components:
+ComponentWithId {componentId = 4, component = Subsystem [ProductionUnit HydroPlant 100.0,ProductionUnit NuclearPlant 10.0,ProductionUnit HydroPlant 130.0,Storage 100.0 100.0]}
+ComponentWithId {componentId = 3, component = ProductionUnit HydroPlant 100.0}
+ComponentWithId {componentId = 2, component = ProductionUnit SolarPanel 10.0}
+ComponentWithId {componentId = 1, component = Storage 10.0 10.0}
+
+>>> remove (2)
+Removed component with id 2
+>>> show_facility
+Current facility components:
+ComponentWithId {componentId = 4, component = Subsystem [ProductionUnit HydroPlant 100.0,ProductionUnit NuclearPlant 10.0,ProductionUnit HydroPlant 130.0,Storage 100.0 100.0]}
+ComponentWithId {componentId = 3, component = ProductionUnit HydroPlant 100.0}
+ComponentWithId {componentId = 1, component = Storage 10.0 10.0}
+
+>>> calculate_total_production
+Total production: 340.0
+>>> calculate_total_storage
+Total storage capacity: 110.0
