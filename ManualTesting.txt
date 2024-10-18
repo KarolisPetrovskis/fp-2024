@@ -33,3 +33,6 @@ ComponentWithId {componentId = 1, component = Storage 10.0 10.0}
 Total production: 340.0
 >>> calculate_total_storage
 Total storage capacity: 110.0
+>>> 
+>>> Random Nonsense
+PARSE ERROR:Failed to parse: Unknown command

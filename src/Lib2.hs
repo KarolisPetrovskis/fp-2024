@@ -64,6 +64,70 @@ many p = many' p []
         Left _ -> Right (acc, input)
         Right (v, r) -> many' p' (acc ++ [v]) r
 
+and2' ::
+  (a -> b -> c) -> Parser a -> Parser b -> Parser c
+and2' f p1 p2 input =
+  case p1 input of
+    Right (v1, r1) ->
+      case p2 r1 of
+        Right (v2, r2) -> Right (f v1 v2, r2)
+        Left e2 -> Left e2
+    Left e1 -> Left e1
+
+and3' :: (a -> b -> c -> d) -> Parser a -> Parser b -> Parser c -> Parser d
+and3' f p1 p2 p3 input =
+  case and2' (,) p1 p2 input of
+    Right ((v1, v2), r2) ->
+      case p3 r2 of
+        Right (v3, r3) -> Right (f v1 v2 v3, r3)
+        Left e2 -> Left e2
+    Left e1 -> Left e1
+
+and4' :: (a -> b -> c -> d -> e) -> Parser a -> Parser b -> Parser c -> Parser d -> Parser e
+and4' f p1 p2 p3 p4 input =
+  case and2' (,) p1 p2 input of
+    Right ((v1, v2), r2) ->
+      case and2' (,) p3 p4 r2 of
+        Right ((v3, v4), r4) -> Right (f v1 v2 v3 v4, r4)
+        Left e2 -> Left e2
+    Left e1 -> Left e1
+
+and6' :: (a -> b -> c -> d -> e -> f -> g) -> Parser a -> Parser b -> Parser c -> Parser d -> Parser e -> Parser f -> Parser g
+and6' f p1 p2 p3 p4 p5 p6 input =
+  case and3' (,,) p1 p2 p3 input of
+    Right ((v1, v2, v3), r3) ->
+      case and3' (,,) p4 p5 p6 r3 of
+        Right ((v4, v5, v6), r6) -> Right (f v1 v2 v3 v4 v5 v6, r6)
+        Left e2 -> Left e2
+    Left e1 -> Left e1
+
+or2' :: Parser a -> Parser a -> Parser a
+or2' p1 p2 input =
+  case p1 input of
+    Right (v1, r1) -> Right (v1, r1)
+    Left e1 ->
+      case p2 input of
+        Right (v2, r2) -> Right (v2, r2)
+        Left e2 -> Left e2
+
+or3' :: Parser a -> Parser a -> Parser a -> Parser a
+or3' p1 p2 p3 input =
+  case or2' p1 p2 input of
+    Right (v1, r1) -> Right (v1, r1)
+    Left e1 ->
+      case p3 input of
+        Right (v3, r3) -> Right (v3, r3)
+        Left e2 -> Left e2
+
+or5' :: Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a
+or5' p1 p2 p3 p4 p5 input =
+  case or3' p1 p2 p3 input of
+    Right (v1, r1) -> Right (v1, r1)
+    Left e1 ->
+      case or2' p4 p5 input of
+        Right (v4, r4) -> Right (v4, r4)
+        Left e2 -> Left e2
+
 skipSpaces :: String -> String
 skipSpaces = dropWhile (== ' ')
 
@@ -134,112 +198,65 @@ parseEnergyProductionUnitType input = case parseString (skipSpaces input) of
 
 -- <energy_production_unit> ::= <energy_production_unit_type> <production>
 parseProductionUnit :: Parser Component
-parseProductionUnit input =
-  case parseLiteral "production_unit" input of
-    Left err -> Left err
-    Right (_, rest) ->
-      case parseChar '(' rest of
-        Left err -> Left err
-        Right (_, rest1) ->
-          case parseEnergyProductionUnitType rest1 of
-            Left err -> Left err
-            Right (uType, rest2) ->
-              case parseChar ',' rest2 of
-                Left err -> Left err
-                Right (_, rest3) ->
-                  case parseDouble rest3 of
-                    Left err -> Left err
-                    Right (production, rest4) ->
-                      case parseChar ')' rest4 of
-                        Left err -> Left err
-                        Right (_, rest5) ->
-                          Right (ProductionUnit uType production, rest5)
+parseProductionUnit =
+  and6'
+    (\_ _ uType _ production _ -> ProductionUnit uType production)
+    (parseLiteral "production_unit")
+    (parseChar '(')
+    parseEnergyProductionUnitType
+    (parseChar ',')
+    parseDouble
+    (parseChar ')')
 
 -- <storage> ::= "storage" "(" <efficiency> "," <max_storage_amount> ")"
 parseStorage :: Parser Component
-parseStorage input =
-  case parseLiteral "storage" input of
-    Left err -> Left err
-    Right (_, rest) ->
-      case parseChar '(' rest of
-        Left err -> Left err
-        Right (_, rest1) ->
-          case parseDouble rest1 of
-            Left err -> Left err
-            Right (efficiency, rest2) ->
-              case parseChar ',' rest2 of
-                Left err -> Left err
-                Right (_, rest3) ->
-                  case parseDouble rest3 of
-                    Left err -> Left err
-                    Right (maxStorage, rest4) ->
-                      case parseChar ')' rest4 of
-                        Left err -> Left err
-                        Right (_, rest5) ->
-                          Right (Storage efficiency maxStorage, rest5)
+parseStorage =
+  and6'
+    (\_ _ efficiency _ storage _ -> Storage efficiency storage)
+    (parseLiteral "storage")
+    (parseChar '(')
+    parseDouble
+    (parseChar ',')
+    parseDouble
+    (parseChar ')')
 
 -- <component> ::= <energy_production_unit> | <storage> | <subsystem>
 parseComponent :: Parser Component
-parseComponent input =
-  case parseStorage input of
-    Right result -> Right result
-    Left err1 -> case parseProductionUnit input of
-      Right result -> Right result
-      Left err2 ->
-        case parseSubsystem input of
-          Right result -> Right result
-          Left err3 -> Left $ err1 ++ err2 ++ err3
+parseComponent =
+  or3'
+    parseStorage
+    parseProductionUnit
+    parseSubsystem
 
 -- <subsystem> ::= "subsystem" "(" component+ ")"
 parseSubsystem :: Parser Component
-parseSubsystem input =
-  case parseLiteral "subsystem" input of
-    Left err -> Left err
-    Right (_, rest) ->
-      case parseChar '(' rest of
-        Left err -> Left err
-        Right (_, rest1) ->
-          case many parseComponent rest1 of
-            Left err -> Left err
-            Right (components, rest2) ->
-              case parseChar ')' rest2 of
-                Left err -> Left err
-                Right (_, rest3) ->
-                  Right (Subsystem components, rest3)
+parseSubsystem =
+  and4'
+    (\_ _ components _ -> Subsystem components)
+    (parseLiteral "subsystem")
+    (parseChar '(')
+    (many parseComponent)
+    (parseChar ')')
 
 -- <AddComponent> ::= "add" <component>
 parseAddComponent :: Parser Query
-parseAddComponent input =
-  case parseLiteral "add" input of
-    Left err -> Left err
-    Right (_, rest) ->
-      case parseChar '(' rest of
-        Left err -> Left err
-        Right (_, rest1) ->
-          case parseComponent rest1 of
-            Left err -> Left err
-            Right (component', rest2) ->
-              case parseChar ')' rest2 of
-                Left err -> Left err
-                Right (_, rest3) ->
-                  Right (AddComponent component', rest3)
+parseAddComponent =
+  and4'
+    (\_ _ component' _ -> AddComponent component')
+    (parseLiteral "add")
+    (parseChar '(')
+    parseComponent
+    (parseChar ')')
 
 -- <RemoveComponent> ::= "remove" <Number>
 parseRemoveComponent :: Parser Query
-parseRemoveComponent input =
-  case parseLiteral "remove" input of
-    Left err -> Left err
-    Right (_, rest) ->
-      case parseChar '(' rest of
-        Left err -> Left err
-        Right (_, rest1) ->
-          case parseInt rest1 of
-            Left err -> Left err
-            Right (componentId', rest2) ->
-              case parseChar ')' rest2 of
-                Left err -> Left err
-                Right (_, rest3) ->
-                  Right (RemoveComponent componentId', rest3)
+parseRemoveComponent =
+  and4'
+    (\_ _ componentId' _ -> RemoveComponent componentId')
+    (parseLiteral "remove")
+    (parseChar '(')
+    parseInt
+    (parseChar ')')
 
 -- ShowFacility ::= "show_facility"
 parseShowFacility :: Parser Query
@@ -262,21 +279,11 @@ parseCalculateTotalStorage input =
     Right (_, rest) -> Right (CalculateTotalStorage, rest)
     Left _ -> Left "Expected 'calculate_total_storage'"
 
--- >>> parseQuery "add (storage(1, 2))"
--- NOW Right (AddComponent (Storage 1.0 2))
 parseQuery :: String -> Either String Query
 parseQuery input =
-  case parseAddComponent input of
+  case or5' parseAddComponent parseRemoveComponent parseShowFacility parseCalculateTotalProduction parseCalculateTotalStorage input of
     Right (query, _) -> Right query
-    Left err1 -> case parseRemoveComponent input of
-      Right (query, _) -> Right query
-      Left err2 -> case parseShowFacility input of
-        Right (query, _) -> Right query
-        Left err3 -> case parseCalculateTotalProduction input of
-          Right (query, _) -> Right query
-          Left err4 -> case parseCalculateTotalStorage input of
-            Right (query, _) -> Right query
-            Left err5 -> Left $ "Failed to parse query: " ++ err1 ++ "; " ++ err2 ++ "; " ++ err3 ++ "; " ++ err4 ++ "; " ++ err5
+    Left _ -> Left "Failed to parse: Unknown command"
 
 stateTransition :: State -> Query -> Either String (Maybe String, State)
 stateTransition st query = case query of

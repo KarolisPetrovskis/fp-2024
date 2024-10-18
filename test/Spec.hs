@@ -1,22 +1,5 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 
-import Lib2
-  ( Component (..),
-    ComponentWithId (..),
-    EnergyProductionUnitType (..),
-    Query (..),
-    State (..),
-    emptyState,
-    parseAddComponent,
-    parseComponent,
-    parseProductionUnit,
-    parseQuery,
-    parseRemoveComponent,
-    parseShowFacility,
-    parseStorage,
-    parseSubsystem,
-    stateTransition,
-  )
 import Lib2 qualified
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.HUnit (testCase, (@?=))
@@ -52,6 +35,9 @@ unitTests =
       testCase "Parse Calculate Total Storage" $
         Lib2.parseQuery "calculate_total_storage"
           @?= Right Lib2.CalculateTotalStorage,
+      testCase "Parse Nonsense" $
+        Lib2.parseQuery "Nonsense"
+          @?= Left "Failed to parse: Unknown command",
       testCase "State Transition - Add Production Unit" $
         let initialState = Lib2.emptyState
          in case Lib2.parseQuery "add (production_unit (SolarPanel, 15.0))" of
