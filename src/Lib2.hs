@@ -14,6 +14,9 @@ module Lib2
     parseAddComponent,
     parseRemoveComponent,
     parseShowFacility,
+    parseLiteral,
+    many,
+    or3',
   )
 where
 
@@ -23,6 +26,7 @@ import Data.Char (isDigit)
 data Query
   = AddComponent Component
   | RemoveComponent Int
+  | SetNextId Int
   | ShowFacility
   | CalculateTotalProduction
   | CalculateTotalStorage
@@ -128,13 +132,34 @@ or5' p1 p2 p3 p4 p5 input =
         Right (v4, r4) -> Right (v4, r4)
         Left e2 -> Left e2
 
-skipSpaces :: String -> String
-skipSpaces = dropWhile (== ' ')
+or6' :: Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a
+or6' p1 p2 p3 p4 p5 p6 input =
+  case or3' p1 p2 p3 input of
+    Right (v1, r1) -> Right (v1, r1)
+    Left e1 ->
+      case or3' p4 p5 p6 input of
+        Right (v4, r4) -> Right (v4, r4)
+        Left e2 -> Left e2
+
+-- borrowed permanentaly from https://hackage.haskell.org/package/MissingH-1.6.0.1/docs/src/Data.String.Utils.html#strip
+strip :: String -> String
+strip = lstrip . rstrip
+
+lstrip :: String -> String
+lstrip s = case s of
+  [] -> []
+  (x : xs) ->
+    if x `elem` " \t\r\n"
+      then lstrip xs
+      else s
+
+rstrip :: String -> String
+rstrip = reverse . lstrip . reverse
 
 parseChar :: Char -> Parser Char
 parseChar _ [] = Left "Unexpected end of input"
 parseChar c input =
-  let input' = skipSpaces input
+  let input' = strip input
    in if null input'
         then Left "Unexpected end of input"
         else
@@ -145,7 +170,7 @@ parseChar c input =
 parseLiteral :: String -> Parser String
 parseLiteral [] input = Right ([], input)
 parseLiteral (x : xs) input =
-  let input' = skipSpaces input
+  let input' = strip input
    in if null input'
         then Left "Unexpected end of input"
         else
@@ -157,7 +182,7 @@ parseLiteral (x : xs) input =
 
 parseString :: Parser String
 parseString input =
-  let input' = skipSpaces input
+  let input' = strip input
    in if null input'
         then Right ("", "")
         else
@@ -175,21 +200,21 @@ parseString input =
 
 parseInt :: Parser Int
 parseInt input =
-  let (digits, rest) = span isDigit (skipSpaces input)
+  let (digits, rest) = span isDigit (strip input)
    in if null digits
         then Left "Expected an integer"
         else Right (read digits, rest)
 
 parseDouble :: Parser Double
 parseDouble input =
-  let (digits, rest) = span (\c -> isDigit c || c == '.') (skipSpaces input)
+  let (digits, rest) = span (\c -> isDigit c || c == '.') (strip input)
    in if null digits
         then Left "Expected a double"
         else Right (read digits, rest)
 
 -- <energy_production_unit_type> ::= "solar_panel" | "nuclear_plant" | "hydro_plant" | "wind_turbine"
 parseEnergyProductionUnitType :: Parser EnergyProductionUnitType
-parseEnergyProductionUnitType input = case parseString (skipSpaces input) of
+parseEnergyProductionUnitType input = case parseString (strip input) of
   Right ("SolarPanel", rest) -> Right (SolarPanel, rest)
   Right ("NuclearPlant", rest) -> Right (NuclearPlant, rest)
   Right ("HydroPlant", rest) -> Right (HydroPlant, rest)
@@ -261,37 +286,54 @@ parseRemoveComponent =
 -- ShowFacility ::= "show_facility"
 parseShowFacility :: Parser Query
 parseShowFacility input =
-  case parseLiteral "show_facility" (skipSpaces input) of
+  case parseLiteral "show_facility" (strip input) of
     Right (_, rest) -> Right (ShowFacility, rest)
     Left _ -> Left "Expected 'show_facility'"
 
 -- CalculateTotalProduction ::= "calculate_total_production"
 parseCalculateTotalProduction :: Parser Query
 parseCalculateTotalProduction input =
-  case parseLiteral "calculate_total_production" (skipSpaces input) of
+  case parseLiteral "calculate_total_production" (strip input) of
     Right (_, rest) -> Right (CalculateTotalProduction, rest)
     Left _ -> Left "Expected 'calculate_total_production'"
 
 -- CalculateTotalStorage ::= "calculate_total_storage"
 parseCalculateTotalStorage :: Parser Query
 parseCalculateTotalStorage input =
-  case parseLiteral "calculate_total_storage" (skipSpaces input) of
+  case parseLiteral "calculate_total_storage" (strip input) of
     Right (_, rest) -> Right (CalculateTotalStorage, rest)
     Left _ -> Left "Expected 'calculate_total_storage'"
 
-parseQuery :: String -> Either String Query
+parseSetNextId :: Parser Query
+parseSetNextId =
+  and4'
+    (\_ _ n _ -> SetNextId n)
+    (parseLiteral "set_next_id")
+    (parseLiteral "(")
+    parseInt
+    (parseLiteral ")")
+
+parseQuery :: String -> Either String (Query, String)
 parseQuery input =
-  case or5' parseAddComponent parseRemoveComponent parseShowFacility parseCalculateTotalProduction parseCalculateTotalStorage input of
-    Right (query, _) -> Right query
+  case or6' parseAddComponent parseRemoveComponent parseShowFacility parseCalculateTotalProduction parseCalculateTotalStorage parseSetNextId input of
+    Right (query, rest) -> Right (query, rest)
     Left _ -> Left "Failed to parse: Unknown command"
 
 stateTransition :: State -> Query -> Either String (Maybe String, State)
 stateTransition st query = case query of
+  SetNextId n ->
+    let newState = st {facility = (facility st), nextId = n}
+     in Right (Just ("Next component will have ID " ++ show n), newState)
   AddComponent component' ->
-    let newComponentWithId = ComponentWithId (nextId st) component'
+    let newId = (nextId st)
+        newComponentWithId = ComponentWithId newId component'
         updatedFacility = newComponentWithId : facility st
-        newState = st {facility = updatedFacility, nextId = nextId st + 1}
-     in Right (Just ("Added " ++ show newComponentWithId), newState)
+        newState = st {facility = updatedFacility, nextId = newId + 1}
+     in if any (\c -> componentId c == newId) (facility st)
+          then
+            Left ("Component with id " ++ show newId ++ " already exists")
+          else
+            Right (Just ("Added " ++ show newComponentWithId), newState)
   RemoveComponent compId ->
     let existingComponent = filter (\c -> componentId c == compId) (facility st)
      in if not (null existingComponent)

@@ -1,25 +1,30 @@
 {-# LANGUAGE ImportQualifiedPost #-}
+
 module Main (main) where
 
+import Control.Concurrent (forkIO)
 import Control.Concurrent.Chan
-import Control.Concurrent.STM(TVar, newTVarIO)
+import Control.Concurrent.STM (TVar, newTVarIO)
 import Control.Monad.IO.Class ()
 import Control.Monad.State.Strict
-    ( MonadIO(liftIO), evalStateT, StateT, get, lift)
+  ( MonadIO (liftIO),
+    StateT,
+    evalStateT,
+    get,
+    lift,
+  )
 import Data.List qualified as L
 import Lib1 qualified
 import Lib2 qualified
 import Lib3 qualified
-
 import System.Console.Repline
   ( CompleterStyle (Word),
     ExitDecision (Exit),
     HaskelineT,
-    WordCompleter,
     MultiLine (..),
+    WordCompleter,
     evalRepl,
   )
-import Control.Concurrent (forkIO)
 
 type Repl a = HaskelineT (StateT (TVar Lib2.State, Chan Lib3.StorageOp) IO) a
 
@@ -56,5 +61,6 @@ main = do
   chan <- newChan :: IO (Chan Lib3.StorageOp)
   state <- newTVarIO Lib2.emptyState
   _ <- forkIO $ Lib3.storageOpLoop chan
-  evalStateT (evalRepl invite cmd [] (Just ':') (Just "paste") (Word completer) ini final)
-    (state, chan) 
+  evalStateT
+    (evalRepl invite cmd [] (Just ':') (Just "paste") (Word completer) ini final)
+    (state, chan)

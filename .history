@@ -1,0 +1,49 @@
+)
+)
+)
+storage (2.0, 0.3)
+subsystem (
+) 
+production_unit (NuclearPlant, 0.3)
+production_unit (SolarPanel ,5.0) 
+production_unit( SolarPanel, 2.0) 
+production_unit (SolarPanel, 2.8) 
+ storage (3.0, 0.5) 
+subsystem (
+subsystem (
+add (
+add (subsystem (subsystem ( storage (3.0, 0.5) production_unit (SolarPanel, 2.8) production_unit( SolarPanel, 2.0) production_unit (SolarPanel ,5.0) production_unit (NuclearPlant, 0.3)) subsystem (storage (2.0, 0.3)))
+)
+)
+subsystem (storage (2.0, 0.3)
+)
+production_unit (NuclearPlant, 0.3)
+production_unit (SolarPanel ,5.0
+production_unit( SolarPanel, 2.0) 
+production_unit (SolarPanel, 2.8) 
+storage (3.0, 0.5)
+subsystem (
+subsystem (
+add (
+:paste
+)
+)
+subsystem (storage (2.0, 0.3)
+)
+production_unit (NuclearPlant, 0.3)
+production_unit (SolarPanel ,5.0
+production_unit( SolarPanel, 2.0) 
+production_unit (SolarPanel, 2.8) 
+storage (3.0, 0.5)
+subsystem (
+subsystem (
+add (
+:paste
+add (subsystem (subsystem storage (3.0, 0.5) production_unit (SolarPanel, 2.8) production_unit (SolarPanel, 2.0) production_unit (SolarPanel, 5.0) production_unit (NuclearPlant, 0.3)) subsystem (storage (2.0, 0.3))
+remove (1)
+add (storage (3.0, 0.5))
+add (subsystem (subsystem storage (3.0, 0.5) production_unit (SolarPanel, 2.8) production_unit (SolarPanel, 2.0) production_unit (SolarPanel, 5.0) production_unit (NuclearPlant, 0.3)) subsystem (storage (2.0, 0.3)))
+add (subsystem (subsystem (storage (3.0, 0.5) production_unit (SolarPanel, 2.8) production_unit( SolarPanel, 2.0) (production_unit (SolarPanel ,5.0) production_unit (NuclearPlant, 0.3)) subsystem (storage (2.0, 0.3)))
+add (subsystem(subsystem(production_unit(HydroPlant 1.3))))
+set_next_id(7)
+:paste
