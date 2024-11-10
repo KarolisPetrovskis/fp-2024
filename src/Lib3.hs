@@ -84,9 +84,10 @@ parseStatements input = do
 -- (probably a batch, but might be a single query)
 marshallState :: Lib2.State -> Statements
 marshallState st =
-  let (lc : _) = Lib2.facility st
-      lastId = Lib2.componentId lc
-   in if null (Lib2.facility st) || lastId == ((Lib2.nextId st) - 1)
+  let lastId = case Lib2.facility st of
+        (lc : _) -> Lib2.componentId lc
+        [] -> 0 -- If the list is empty, lastId is 0
+   in if not (null (Lib2.facility st)) && lastId == ((Lib2.nextId st) - 1)
         then Batch (componentsToQueriesWrapper (reverse (Lib2.facility st)))
         else Batch (componentsToQueriesWrapper (reverse (Lib2.facility st)) ++ [Lib2.SetNextId (Lib2.nextId st)])
 
