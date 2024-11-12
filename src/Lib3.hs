@@ -54,16 +54,31 @@ data Command
   | SaveCommand
   deriving (Show, Eq)
 
+parseLoad :: String -> Either String (Command, String)
+parseLoad input =
+  case parseLiteral "load" (Lib2.strip input) of
+    Right (_, rest) -> Right (LoadCommand, rest)
+    Left _ -> Left ""
+
+parseSave :: String -> Either String (Command, String)
+parseSave input =
+  case parseLiteral "save" (Lib2.strip input) of
+    Right (_, rest) -> Right (SaveCommand, rest)
+    Left _ -> Left ""
+
+parseStatementsCommand :: String -> Either String (Command, String)
+parseStatementsCommand input =
+  case parseStatements input of
+    Right (statements, rest) -> Right (StatementCommand statements, rest)
+    Left err -> Left $ "Failed to parse command\n" ++ err
+
 -- | Parses user's input.
 parseCommand :: String -> Either String (Command, String)
-parseCommand input =
-  case parseLiteral "load" input of
-    Right (_, rest) -> Right (LoadCommand, rest)
-    Left _ -> case parseLiteral "save" input of
-      Right (_, rest) -> Right (SaveCommand, rest)
-      Left _ -> case parseStatements input of
-        Right (statements, rest) -> Right (StatementCommand statements, rest)
-        Left err -> Left $ "Failed to parse command\n" ++ err
+parseCommand =
+  Lib2.or3'
+    parseLoad
+    parseSave
+    parseStatementsCommand
 
 -- | Parses Statement.
 -- Must be used in parseCommand.

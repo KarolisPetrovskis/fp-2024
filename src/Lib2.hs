@@ -17,6 +17,8 @@ module Lib2
     parseLiteral,
     many,
     or3',
+    Parser,
+    strip,
   )
 where
 
