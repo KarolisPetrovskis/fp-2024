@@ -1,5 +1,3 @@
-{-# LANGUAGE ImportQualifiedPost #-}
-
 module Main (main) where
 
 import Control.Concurrent (forkIO)
@@ -42,7 +40,7 @@ completer n =
 
 cmd :: String -> Repl ()
 cmd str = do
-  case Lib3.parseCommand str of
+  case Lib2.parse Lib3.parseCommand str of
     Left e -> liftIO $ putStrLn $ "PARSE ERROR:" ++ e
     Right (c, "") -> do
       (st, chan) <- lift get

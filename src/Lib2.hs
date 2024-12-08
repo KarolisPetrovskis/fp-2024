@@ -1,6 +1,6 @@
 module Lib2
   ( Query (..),
-    State (..),
+    Lib2.State (..),
     Component (..),
     EnergyProductionUnitType (..),
     ComponentWithId (..),
@@ -19,9 +19,14 @@ module Lib2
     or3',
     Parser,
     strip,
+    parse,
   )
 where
 
+import Control.Applicative (optional, (<|>))
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Except (ExceptT, catchE, runExceptT, throwE)
+import Control.Monad.Trans.State.Strict as S
 import Data.Char (isDigit)
 
 -- | Data types for Queries and State
@@ -56,92 +61,83 @@ data State = State
   deriving (Eq, Show)
 
 -- | Initial program state.
-emptyState :: State
+emptyState :: Lib2.State
 emptyState = State {facility = [], nextId = 1}
 
 -- | Basic parsers
-type Parser a = String -> Either String (a, String)
+-- type Parser a = String -> Either String (a, String)
+type Parser a = ExceptT String (S.State String) a
+
+parse :: Parser a -> String -> (Either String a, String)
+parse parser = S.runState (runExceptT parser)
 
 many :: Parser a -> Parser [a]
-many p = many' p []
-  where
-    many' p' acc input =
-      case p' input of
-        Left _ -> Right (acc, input)
-        Right (v, r) -> many' p' (acc ++ [v]) r
+many p =
+  ( do
+      x <- p
+      xs <- many p
+      return (x : xs)
+  )
+    `catchE` \_ -> return []
 
-and2' ::
-  (a -> b -> c) -> Parser a -> Parser b -> Parser c
-and2' f p1 p2 input =
-  case p1 input of
-    Right (v1, r1) ->
-      case p2 r1 of
-        Right (v2, r2) -> Right (f v1 v2, r2)
-        Left e2 -> Left e2
-    Left e1 -> Left e1
+and2' :: (a -> b -> c) -> Parser a -> Parser b -> Parser c
+and2' f p1 p2 = do
+  v1 <- p1
+  f v1 <$> p2
 
 and3' :: (a -> b -> c -> d) -> Parser a -> Parser b -> Parser c -> Parser d
-and3' f p1 p2 p3 input =
-  case and2' (,) p1 p2 input of
-    Right ((v1, v2), r2) ->
-      case p3 r2 of
-        Right (v3, r3) -> Right (f v1 v2 v3, r3)
-        Left e2 -> Left e2
-    Left e1 -> Left e1
+and3' f p1 p2 p3 = do
+  v1 <- p1
+  v2 <- p2
+  f v1 v2 <$> p3
 
 and4' :: (a -> b -> c -> d -> e) -> Parser a -> Parser b -> Parser c -> Parser d -> Parser e
-and4' f p1 p2 p3 p4 input =
-  case and2' (,) p1 p2 input of
-    Right ((v1, v2), r2) ->
-      case and2' (,) p3 p4 r2 of
-        Right ((v3, v4), r4) -> Right (f v1 v2 v3 v4, r4)
-        Left e2 -> Left e2
-    Left e1 -> Left e1
+and4' f p1 p2 p3 p4 = do
+  v1 <- p1
+  v2 <- p2
+  v3 <- p3
+  f v1 v2 v3 <$> p4
 
 and6' :: (a -> b -> c -> d -> e -> f -> g) -> Parser a -> Parser b -> Parser c -> Parser d -> Parser e -> Parser f -> Parser g
-and6' f p1 p2 p3 p4 p5 p6 input =
-  case and3' (,,) p1 p2 p3 input of
-    Right ((v1, v2, v3), r3) ->
-      case and3' (,,) p4 p5 p6 r3 of
-        Right ((v4, v5, v6), r6) -> Right (f v1 v2 v3 v4 v5 v6, r6)
-        Left e2 -> Left e2
-    Left e1 -> Left e1
+and6' f p1 p2 p3 p4 p5 p6 = do
+  v1 <- p1
+  v2 <- p2
+  v3 <- p3
+  v4 <- p4
+  v5 <- p5
+  f v1 v2 v3 v4 v5 <$> p6
 
 or2' :: Parser a -> Parser a -> Parser a
-or2' p1 p2 input =
-  case p1 input of
-    Right (v1, r1) -> Right (v1, r1)
-    Left e1 ->
-      case p2 input of
-        Right (v2, r2) -> Right (v2, r2)
-        Left e2 -> Left e2
+or2' a b = do
+  inputBefore <- lift get
+  a `catchE` \e1 -> do
+    lift (put inputBefore)
+    b `catchE` \e2 -> do
+      lift (put inputBefore)
+      throwE (e1 ++ "\n" ++ e2)
 
 or3' :: Parser a -> Parser a -> Parser a -> Parser a
-or3' p1 p2 p3 input =
-  case or2' p1 p2 input of
-    Right (v1, r1) -> Right (v1, r1)
-    Left e1 ->
-      case p3 input of
-        Right (v3, r3) -> Right (v3, r3)
-        Left e2 -> Left e2
+or3' a b c = do
+  inputBefore <- lift get
+  a `catchE` \e1 -> do
+    lift (put inputBefore)
+    b `catchE` \e2 -> do
+      lift (put inputBefore)
+      c `catchE` \e3 -> do
+        lift (put inputBefore)
+        throwE (e1 ++ "\n" ++ e2 ++ "\n" ++ e3)
 
 or5' :: Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a
-or5' p1 p2 p3 p4 p5 input =
-  case or3' p1 p2 p3 input of
-    Right (v1, r1) -> Right (v1, r1)
-    Left e1 ->
-      case or2' p4 p5 input of
-        Right (v4, r4) -> Right (v4, r4)
-        Left e2 -> Left e2
+or5' a b c d e = do
+  or3' a b c `catchE` \e1 -> do
+    resultB <- or2' d e
+    return resultB `catchE` \_ -> throwE e1
 
 or6' :: Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a -> Parser a
-or6' p1 p2 p3 p4 p5 p6 input =
-  case or3' p1 p2 p3 input of
-    Right (v1, r1) -> Right (v1, r1)
-    Left e1 ->
-      case or3' p4 p5 p6 input of
-        Right (v4, r4) -> Right (v4, r4)
-        Left e2 -> Left e2
+or6' a b c d e f = do
+  or3' a b c `catchE` \e1 -> do
+    resultB <- or3' d e f
+    return resultB `catchE` \_ -> throwE e1
 
 -- borrowed permanentaly from https://hackage.haskell.org/package/MissingH-1.6.0.1/docs/src/Data.String.Utils.html#strip
 strip :: String -> String
@@ -159,69 +155,70 @@ rstrip :: String -> String
 rstrip = reverse . lstrip . reverse
 
 parseChar :: Char -> Parser Char
-parseChar _ [] = Left "Unexpected end of input"
-parseChar c input =
-  let input' = strip input
-   in if null input'
-        then Left "Unexpected end of input"
-        else
-          if head input' == c
-            then Right (c, tail input')
-            else Left $ "Expected '" ++ [c] ++ "', but found '" ++ [head input'] ++ "'"
+parseChar c = do
+  input <- lift get
+  case input of
+    [] -> throwE ("Cannot find " ++ [c] ++ " in an empty input")
+    s@(h : t) -> if c == h then lift $ put t >> return h else throwE (c : " is not found in " ++ s ++ "\n")
 
 parseLiteral :: String -> Parser String
-parseLiteral [] input = Right ([], input)
-parseLiteral (x : xs) input =
-  let input' = strip input
-   in if null input'
-        then Left "Unexpected end of input"
-        else
-          if head input' == x
-            then case parseLiteral xs (tail input') of
-              Right (str, rest) -> Right (x : str, rest)
-              Left err -> Left err
-            else Left $ "Expected " ++ (x : xs) ++ ", but found " ++ take (length (x : xs)) input'
+parseLiteral [] = return []
+parseLiteral (x : xs) = do
+  input <- lift get
+  let strippedInput = strip input
+  lift $ put strippedInput
+  _ <- parseChar x
+  rest <- parseLiteral xs
+  return (x : rest)
 
 parseString :: Parser String
-parseString input =
+parseString = do
+  input <- lift get
   let input' = strip input
-   in if null input'
-        then Right ("", "")
-        else
-          if head input' == '"'
-            then parseQuotedString (tail input')
-            else
-              let (str, rest) = span (\c -> c /= ' ' && c /= ',' && c /= '(' && c /= ')') input'
-               in Right (str, rest)
+  case input' of
+    ('"' : xs) -> parseQuotedString xs
+    _ -> do
+      let (str, rest) = span (\c -> c /= ' ' && c /= ',' && c /= '(' && c /= ')') input'
+      lift (put rest)
+      return str
   where
-    parseQuotedString [] = Left "Unexpected end of input in quoted string"
-    parseQuotedString ('"' : rest) = Right ("", rest)
-    parseQuotedString (x : rest) = case parseQuotedString rest of
-      Right (str, rest') -> Right (x : str, rest')
-      Left err -> Left err
+    parseQuotedString [] = throwE "Unexpected end of input in quoted string"
+    parseQuotedString ('"' : rest) = lift (put rest) >> return ""
+    parseQuotedString (x : rest) = do
+      str <- parseQuotedString rest
+      return (x : str)
 
 parseInt :: Parser Int
-parseInt input =
-  let (digits, rest) = span isDigit (strip input)
-   in if null digits
-        then Left "Expected an integer"
-        else Right (read digits, rest)
+parseInt = do
+  input <- lift get
+  let strippedInput = strip input
+  let (digits, rest) = span isDigit strippedInput
+  if null digits
+    then throwE "Expected an integer"
+    else do
+      lift (put rest)
+      return (read digits)
 
 parseDouble :: Parser Double
-parseDouble input =
-  let (digits, rest) = span (\c -> isDigit c || c == '.') (strip input)
-   in if null digits
-        then Left "Expected a double"
-        else Right (read digits, rest)
+parseDouble = do
+  input <- lift get
+  let strippedInput = strip input
+  let (digits, rest) = span (\c -> isDigit c || c == '.') strippedInput
+  if null digits
+    then throwE "Expected a double"
+    else do
+      lift (put rest)
+      return (read digits)
 
--- <energy_production_unit_type> ::= "solar_panel" | "nuclear_plant" | "hydro_plant" | "wind_turbine"
 parseEnergyProductionUnitType :: Parser EnergyProductionUnitType
-parseEnergyProductionUnitType input = case parseString (strip input) of
-  Right ("SolarPanel", rest) -> Right (SolarPanel, rest)
-  Right ("NuclearPlant", rest) -> Right (NuclearPlant, rest)
-  Right ("HydroPlant", rest) -> Right (HydroPlant, rest)
-  Right ("WindTurbine", rest) -> Right (WindTurbine, rest)
-  _ -> Left "Failed to parse production unit type"
+parseEnergyProductionUnitType = do
+  str <- parseString
+  case str of
+    "SolarPanel" -> return SolarPanel
+    "NuclearPlant" -> return NuclearPlant
+    "HydroPlant" -> return HydroPlant
+    "WindTurbine" -> return WindTurbine
+    _ -> throwE "Unknown energy production unit type"
 
 -- <energy_production_unit> ::= <energy_production_unit_type> <production>
 parseProductionUnit :: Parser Component
@@ -287,24 +284,21 @@ parseRemoveComponent =
 
 -- ShowFacility ::= "show_facility"
 parseShowFacility :: Parser Query
-parseShowFacility input =
-  case parseLiteral "show_facility" (strip input) of
-    Right (_, rest) -> Right (ShowFacility, rest)
-    Left _ -> Left "Expected 'show_facility'"
+parseShowFacility = do
+  _ <- parseLiteral "show_facility"
+  return ShowFacility
 
 -- CalculateTotalProduction ::= "calculate_total_production"
 parseCalculateTotalProduction :: Parser Query
-parseCalculateTotalProduction input =
-  case parseLiteral "calculate_total_production" (strip input) of
-    Right (_, rest) -> Right (CalculateTotalProduction, rest)
-    Left _ -> Left "Expected 'calculate_total_production'"
+parseCalculateTotalProduction = do
+  _ <- parseLiteral "calculate_total_production"
+  return CalculateTotalProduction
 
 -- CalculateTotalStorage ::= "calculate_total_storage"
 parseCalculateTotalStorage :: Parser Query
-parseCalculateTotalStorage input =
-  case parseLiteral "calculate_total_storage" (strip input) of
-    Right (_, rest) -> Right (CalculateTotalStorage, rest)
-    Left _ -> Left "Expected 'calculate_total_storage'"
+parseCalculateTotalStorage = do
+  _ <- parseLiteral "calculate_total_storage"
+  return CalculateTotalStorage
 
 parseSetNextId :: Parser Query
 parseSetNextId =
@@ -315,13 +309,17 @@ parseSetNextId =
     parseInt
     (parseLiteral ")")
 
-parseQuery :: String -> Either String (Query, String)
-parseQuery input =
-  case or6' parseAddComponent parseRemoveComponent parseShowFacility parseCalculateTotalProduction parseCalculateTotalStorage parseSetNextId input of
-    Right (query, rest) -> Right (query, rest)
-    Left _ -> Left "Failed to parse: Unknown command"
+parseQuery :: Parser Query
+parseQuery =
+  or6'
+    parseAddComponent
+    parseRemoveComponent
+    parseShowFacility
+    parseCalculateTotalProduction
+    parseCalculateTotalStorage
+    parseSetNextId
 
-stateTransition :: State -> Query -> Either String (Maybe String, State)
+stateTransition :: Lib2.State -> Query -> Either String (Maybe String, Lib2.State)
 stateTransition st query = case query of
   SetNextId n ->
     let newState = st {facility = (facility st), nextId = n}
@@ -374,8 +372,8 @@ calculateTotalStorage (c : cs) = case c of
         restCap = calculateTotalStorage cs
      in subCap + restCap
 
-calculateTotalFacilityProduction :: State -> Double
+calculateTotalFacilityProduction :: Lib2.State -> Double
 calculateTotalFacilityProduction st = calculateTotalProduction (map component (facility st))
 
-calculateTotalFacilityStorage :: State -> Double
+calculateTotalFacilityStorage :: Lib2.State -> Double
 calculateTotalFacilityStorage st = calculateTotalStorage (map component (facility st))

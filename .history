@@ -1,3 +1,13 @@
+add(subsystem(production_unit(HydroPlant,100) production_unit(NuclearPlant,10) production_unit(HydroPlant,130) storage(100, 100)))
+ add(production_unit(HydroPlant,100))
+add(subsystem(production_unit(HydroPlant,100))
+add(subsystem(production_unit(HydroPlant,100)))
+ add(production_unit(HydroPlant,100))
+remove (2)
+add(subsystem(production_unit(HydroPlant,100) production_unit(NuclearPlant,10) production_unit(HydroPlant,130) storage(100, 100)))
+show_facility
+add(production_unit(SolarPanel,10))
+add(storage(10,10))
 )
 )
 )

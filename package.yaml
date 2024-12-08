@@ -45,39 +45,6 @@ library:
   - strict
 
 executables:
-  fp2024-one:
-    main:                Main.hs
-    source-dirs:         app1
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - fp2024
-    - repline
-  fp2024-two:
-    main:                Main.hs
-    source-dirs:         app2
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - fp2024
-    - repline
-    - mtl
-  fp2024-three:
-    main:                Main.hs
-    source-dirs:         app3
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - fp2024
-    - repline
-    - mtl
-    - stm
   fp2024-four-client:
     main:                Main.hs
     source-dirs:         app4-client
@@ -92,6 +59,8 @@ executables:
     - wreq
     - bytestring
     - string-conversions
+    - free
+    - mtl
   fp2024-four-server:
     main:                Main.hs
     source-dirs:         app4-server
@@ -104,6 +73,8 @@ executables:
     - repline
     - scotty
     - string-conversions
+    - stm
+    - mtl
 
 tests:
   fp2024-test:

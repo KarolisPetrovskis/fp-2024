@@ -10,6 +10,8 @@ module Lib3
     renderStatements,
     applyQueries,
     getQueries,
+    Command (..),
+    Statements(..),
   )
 where
 
@@ -54,26 +56,22 @@ data Command
   | SaveCommand
   deriving (Show, Eq)
 
-parseLoad :: String -> Either String (Command, String)
-parseLoad input =
-  case parseLiteral "load" (Lib2.strip input) of
-    Right (_, rest) -> Right (LoadCommand, rest)
-    Left _ -> Left ""
+parseLoad :: Lib2.Parser Command
+parseLoad = do
+  _ <- parseLiteral "load"
+  return LoadCommand
 
-parseSave :: String -> Either String (Command, String)
-parseSave input =
-  case parseLiteral "save" (Lib2.strip input) of
-    Right (_, rest) -> Right (SaveCommand, rest)
-    Left _ -> Left ""
+parseSave :: Lib2.Parser Command
+parseSave = do
+  _ <- parseLiteral "save"
+  return SaveCommand
 
-parseStatementsCommand :: String -> Either String (Command, String)
-parseStatementsCommand input =
-  case parseStatements input of
-    Right (statements, rest) -> Right (StatementCommand statements, rest)
-    Left err -> Left $ "Failed to parse command\n" ++ err
+parseStatementsCommand :: Lib2.Parser Command
+parseStatementsCommand = do
+  StatementCommand <$> parseStatements
 
 -- | Parses user's input.
-parseCommand :: String -> Either String (Command, String)
+parseCommand :: Lib2.Parser Command
 parseCommand =
   Lib2.or3'
     parseLoad
@@ -84,16 +82,10 @@ parseCommand =
 -- Must be used in parseCommand.
 -- Reuse Lib2 as much as you can.
 -- You can change Lib2.parseQuery signature if needed.
-parseStatements :: String -> Either String (Statements, String)
-parseStatements input = do
-  case Lib2.many Lib2.parseQuery input of
-    Right ([], _) -> Left ""
-    Right (queries, "") ->
-      if length queries == 1
-        then Right (Single (head queries), "")
-        else Right (Batch queries, "")
-    Right (_, _) -> Left " One of the queries failed"
-    Left err -> Left err
+parseStatements :: Lib2.Parser Statements
+parseStatements = do
+  queries <- Lib2.many Lib2.parseQuery
+  return (Batch queries)
 
 -- | Converts program's state into Statements
 -- (probably a batch, but might be a single query)
@@ -172,9 +164,9 @@ stateTransition st command ioChan = case command of
     replyChan <- newChan
     writeChan ioChan (Load replyChan)
     content <- readChan replyChan
-    case parseStatements content of
-      Left err -> return $ Left err
-      Right (statements, _) -> atomically $ do
+    case Lib2.parse parseStatements content of
+      (Left err, _) -> return $ Left err
+      (Right statements, _) -> atomically $ do
         let (_, newState) = applyQueries Lib2.emptyState (getQueries statements)
         writeTVar st newState
         return $ Right $ Just "State loaded successfully."
