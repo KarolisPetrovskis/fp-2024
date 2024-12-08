@@ -12,6 +12,7 @@ module Lib3
     getQueries,
     Command (..),
     Statements(..),
+    getStringFromComponent,
   )
 where
 

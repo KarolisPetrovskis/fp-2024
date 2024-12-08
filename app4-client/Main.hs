@@ -16,7 +16,7 @@ import qualified Lib3
 
 data MyDomainAlgebra next
   = Load (() -> next)
-  | AddComponent String (() -> next)
+  | AddComponent Lib2.Component (() -> next)
   | RemoveComponent Int (() -> next)
   | SetNextId Int (() -> next)
   | ShowFacility (String -> next)
@@ -30,7 +30,7 @@ type MyDomain = Free MyDomainAlgebra
 load :: MyDomain ()
 load = liftF $ Load id
 
-addComponent :: String -> MyDomain ()
+addComponent :: Lib2.Component -> MyDomain ()
 addComponent component = liftF $ AddComponent component id
 
 removeComponent :: Int -> MyDomain ()
@@ -69,7 +69,7 @@ runHttp (Free step) = do
       resp <- post "http://localhost:3000" rawRequest
       return $ next ()
     runStep (AddComponent component next) = do
-      let rawRequest = cs ("add(" ++ component ++ ")") :: ByteString
+      let rawRequest = cs ("add(" ++ (Lib3.getStringFromComponent component) ++ ")") :: ByteString
       resp <- post "http://localhost:3000" rawRequest
       return $ next ()
     runStep (RemoveComponent n next) = do
@@ -133,7 +133,7 @@ runSmartExecutor stateRef (Free step) = do
       return $ next ()
 
     processStep stateRef' (AddComponent component next) = do
-        modifyQueue stateRef' $ "add(" ++ component ++ ")"
+        modifyQueue stateRef' $ "add(" ++ (Lib3.getStringFromComponent component) ++ ")"
         return $ next ()
 
     processStep stateRef' (RemoveComponent n next) = do
@@ -224,18 +224,16 @@ main = do
 testCommands :: MyDomain String
 testCommands = do
   load
-  addComponent "storage(1,100)"
+  addComponent (Lib2.Storage 10 20)
   load
-  addComponent "production_unit(SolarPanel, 50)"
-  addComponent "subsystem(storage(8,50)production_unit(WindTurbine, 30))"
+  addComponent (Lib2.ProductionUnit Lib2.SolarPanel 10)
+  addComponent (Lib2.Subsystem [Lib2.Storage 10 20, Lib2.ProductionUnit Lib2.SolarPanel 10])
   removeComponent 1
   setNextId 10
   facility <- showFacility
   production <- calculateTotalProduction
   storage <- calculateTotalStorage
   save
-  addComponent "production_unit(SolarPanel, 50)"
-  addComponent "subsystem(storage(8,50)production_unit(WindTurbine, 30))"
 
   return ("Facility: " ++ facility ++ "\nTotal Production: " ++ production ++ "\nTotal Storage: " ++ storage)
 
@@ -282,7 +280,7 @@ runTest program = do
         return $ next ()
 
     interpret (AddComponent component next) stateRef = do
-        _ <- runCommandInMemory ("add(" ++ component ++ ")") stateRef
+        _ <- runCommandInMemory ("add(" ++ (Lib3.getStringFromComponent component) ++ ")") stateRef
         return $ next ()
 
     interpret (RemoveComponent n next) stateRef = do
@@ -294,9 +292,8 @@ runTest program = do
         return $ next ()
 
     interpret (ShowFacility next) stateRef = do
-        facilityState <- readIORef stateRef
-        let facilityDescription = show facilityState
-        return $ next facilityDescription
+        facility <- runCommandInMemory "show_facility" stateRef
+        return $ next facility
 
     interpret (CalculateTotalProduction next) stateRef = do
         production <- runCommandInMemory "calculate_total_production" stateRef
